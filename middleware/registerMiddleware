@@ -1,0 +1,107 @@
+// middleware/registerMiddleware.js
+const bcrypt = require('bcryptjs');
+
+/* =========================
+   REGISTER MIDDLEWARE
+========================= */
+
+function validateRegisterBody(req, res, next) {
+  const { username, email, password } = req.body;
+
+  if (!username || !email || !password) {
+    return res.status(400).json({
+      message: 'username, email ve password zorunludur',
+    });
+  }
+
+  if (username.length < 3) {
+    return res.status(400).json({
+      message: 'username en az 3 karakter olmalidir',
+    });
+  }
+
+  const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+  if (!emailRegex.test(email)) {
+    return res.status(400).json({
+      message: 'Gecersiz email formatı',
+    });
+  }
+
+  if (password.length < 4) {
+    return res.status(400).json({
+      message: 'password en az 4 karakter olmalidir',
+    });
+  }
+
+  next();
+}
+
+function checkRegisterUniqueness(users) {
+  return function (req, res, next) {
+    const { username, email } = req.body;
+
+    const emailExists = users.find(u => u.email === email);
+    if (emailExists) {
+      return res.status(409).json({ message: 'Bu email zaten kayitli' });
+    }
+
+    const usernameExists = users.find(u => u.username === username);
+    if (usernameExists) {
+      return res.status(409).json({ message: 'Bu username zaten kullaniliyor' });
+    }
+
+    next();
+  };
+}
+
+/* =========================
+   LOGIN MIDDLEWARE
+========================= */
+
+function validateLoginBody(req, res, next) {
+  const { email, password } = req.body;
+
+  if (!email || !password) {
+    return res.status(400).json({
+      message: 'email ve password zorunludur',
+    });
+  }
+
+  const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+  if (!emailRegex.test(email)) {
+    return res.status(400).json({
+      message: 'Gecersiz email formatı',
+    });
+  }
+
+  next();
+}
+
+// 🔐 ASYNC bcrypt.compare KULLANIMI
+function checkUserCredentials(users) {
+  return async function (req, res, next) {
+    const { email, password } = req.body;
+
+    const user = users.find(u => u.email === email);
+
+    if (!user) {
+      return res.status(401).json({ error: 'Hatali bilgiler' });
+    }
+
+    const isMatch = await bcrypt.compare(password, user.password);
+
+    if (!isMatch) {
+      return res.status(401).json({ error: 'Hatali bilgiler' });
+    }
+
+    req.user = user;
+    next();
+  };
+}
+
+module.exports = {
+  validateRegisterBody,
+  checkRegisterUniqueness,
+  validateLoginBody,
+  checkUserCredentials,
+};
